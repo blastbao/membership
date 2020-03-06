@@ -12,9 +12,12 @@ import (
 var hostPidMap = make(map[string]int) // maps hostname to pid
 var pidHostMap = make(map[int]string) // maps pid to hostname
 
-// Working with hostnames is surprisingly hard - socket connections only show IP
-// Populate hostname to IP mappings for all hosts in the hostsfile
+
+
+// Working with hostnames is surprisingly hard -
+// socket connections only show IP Populate hostname to IP mappings for all hosts in the hostsfile
 var ipHostMap = make(map[string]string) // maps remote ip addresses to hostname
+
 
 var leaderHostname string
 var hostname string
@@ -63,15 +66,16 @@ func main() {
 	hostname, _ = os.Hostname()
 
 	for i, h := range hosts {
-		pid := i + 1
-		hostPidMap[h] = pid
-		pidHostMap[pid] = h
-		ipAddrs, _ := net.LookupHost(h)
-		ipHostMap[ipAddrs[0]] = h
+		pid := i + 1						// peerId
+		hostPidMap[h] = pid					// host => peerId
+		pidHostMap[pid] = h					// peerId => host
+		ipAddrs, _ := net.LookupHost(h) 	// host => ipAddr
+		ipHostMap[ipAddrs[0]] = h			// ipAddr => host
 	}
 
-	membershipList[leaderHostname] = true // Add leaderHostname to membershipList
+	membershipList[leaderHostname] = true 	// Add leaderHostname to membershipList
 	isLeader = leaderHostname == hostname
+
 
 	StartEventLoop()
 }

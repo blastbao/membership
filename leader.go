@@ -20,8 +20,16 @@ var pendingMessages []Message
 // process message based on message type
 func leaderMessageProcessor(message Message, fromHost string) {
 
+
+
+
+	// 收到 "Add Req" 请求，需要回复 "OK Rsp"
 	if IsReqMessage(&message) {
+
+		//
 		if recoveringLeader {
+
+
 			pendingMessages = append(pendingMessages, message)
 
 			// Check if received messages from all alive hosts
@@ -34,12 +42,23 @@ func leaderMessageProcessor(message Message, fromHost string) {
 			return
 		}
 
+
 		msg := OkMessage(message.Data["reqId"], message.Data["curViewId"])
 		go sendTCPMsg(msg, fmt.Sprintf("%s:%d", leaderHostname, port))
 	}
 
+
+
+
+
 	if IsOkMessage(&message) {
-		key := [2]int{message.Data["reqId"], message.Data["curViewId"]}
+
+
+		key := [2]int{
+			message.Data["reqId"],
+			message.Data["curViewId"],
+		}
+
 		if len(okList[key]) == 0 {
 			okList[key] = make(map[string]bool)
 		}
@@ -47,23 +66,42 @@ func leaderMessageProcessor(message Message, fromHost string) {
 		okList[key][fromHost] = true // add sender to OkList
 
 		sentMsg := reqList[key]
-		// If ADD message, make sure all the hosts sent OK responses
-		// If DELETE message, make sure all but the lost host sent OK responses
-		if (IsAddReqMessage(&sentMsg) && len(okList[key]) == len(membershipList)) || (IsDeleteReqMessage(&sentMsg) && len(okList[key]) == len(membershipList)-1) {
+
+		// If ADD message, make sure all the hosts sent OK responses.
+		//
+		// If DELETE message, make sure all but the lost host sent OK responses.
+		//
+		if  (IsAddReqMessage(&sentMsg)    && len(okList[key]) == len(membershipList))  ||
+			(IsDeleteReqMessage(&sentMsg) && len(okList[key]) == len(membershipList)-1)   {
+
+			//
 			multicastNewViewMessage(key)
 		}
+
 	}
+
+
 
 	if IsNewViewMessage(&message) {
 		printMembership()
 	}
+
+
 }
 
 // Start protocol to add a host to membership list
 func startAddOperation(host string) {
+
+	// 构造 req 消息
 	msg := AddReqMessage(reqId, viewId, hostPidMap[host]) // ADD REQ message to members
+
+	// 保存 req 消息
 	reqList[[2]int{reqId, viewId}] = msg
+
+	// 广播消息
 	multicastTCPMessage(msg, "")
+
+	// 序号加 1
 	reqId += 1
 }
 
@@ -87,6 +125,8 @@ func multicastNewViewMessage(key [2]int) {
 	for h := range membershipList {
 		currentMembers[h] = hostPidMap[h]
 	}
+
+
 	nvMsg := NewViewMessage(viewId, currentMembers)
 	multicastTCPMessage(nvMsg, "")
 }
@@ -95,10 +135,16 @@ func multicastNewViewMessage(key [2]int) {
 // If yes, start adding host to membership. Finally update timestamp.
 func leaderHeartbeatProcessor(remoteHost string) {
 
+
+
+
+	// 如果 remoteHost 是新节点，就 remoteHost 广播给每个 peer
+
 	if !membershipList[remoteHost] && !removedList[remoteHost] { // New follower?
 		startAddOperation(remoteHost)
 	}
 
+	// 更新 remoteHost 的心跳时间戳
 	lastHeartbeat[remoteHost] = time.Now()
 }
 
@@ -122,6 +168,8 @@ func removeFailedHost(failedHost string) {
 }
 
 func leaderFailureScenario(failedHost string, message Message) {
+
+
 	var pids []int
 
 	for h := range membershipList {
@@ -145,22 +193,29 @@ func leaderFailureScenario(failedHost string, message Message) {
 	log.Fatal("So long and thanks for all the fish!")
 }
 
+
+
 func restartPendingProtocol() {
 
 	for _, m := range pendingMessages {
+
+
 		if IsNothingReqMessage(&m) {
 			continue
 		}
+
 
 		if IsAddReqMessage(&m) {
 			log.Printf("Does not support ADD operation while leader restart")
 			continue
 		}
 
+
 		if IsDeleteReqMessage(&m) {
 			removeFailedHost(pidHostMap[m.Data["procId"]])
 			break
 		}
+
 	}
 
 	recoveringLeader = false

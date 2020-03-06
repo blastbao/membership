@@ -19,34 +19,51 @@ func StartEventLoop() {
 	inMsgChan := make(chan InMsgType)
 	defer close(inMsgChan)
 
+	// 1. 监听 tcp
 	tcp, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	LogFatalCheck(err, "Failed to create TCP listener")
 	defer tcp.Close()
 
+	// 2. 接收 tcp 连接、读取消息并写入管道、断开连接
 	go acceptTCPMessages(tcp, inMsgChan)
+
 
 	// UDP heartbeats message channel
 	hbMsgChan := make(chan string) // monitorUDPHeartbeats sends the remote ip address
 	defer close(hbMsgChan)
 
+	// 3. 监听 udp
 	udp, err := net.ListenUDP("udp", &net.UDPAddr{Port: port + 1}) //on (TCP port + 1)
 	LogFatalCheck(err, "Failed to create UDP listener")
 	defer udp.Close()
 
+	//
 	hbGCTimer := make(chan bool)
 	defer close(hbGCTimer)
 
+	//4. 接收其它节点发来的 udp 心跳消息、写入心跳管道 hbMsgChan 中
 	go monitorUDPHeartbeats(*udp, hbMsgChan) // Heartbeat monitor
+
+
+	// 5. 每隔 xxx 秒给其它节点发送心跳
 	go startHeartbeat(heartbeatFreq)         // Heartbeat thread
+
+	// 6.
 	go startHBGCTimer(hbGCTimer)             // Heartbeat Garbage Collection timer
+
 
 	for {
 		select {
 		case msg := <-inMsgChan:
+
+			//
 			processMessage(msg.Message, ipHostMap[msg.From])
+
 		case hb := <-hbMsgChan:
+			//
 			processHeartbeat(ipHostMap[hb])
 		case <-hbGCTimer:
+			//
 			garbageCollectHeartbeats()
 		}
 	}
@@ -63,18 +80,31 @@ func processMessage(msg Message, fromHost string) {
 
 // For every heartbeat message received
 func processHeartbeat(fromHost string) {
+
+	// 如果我是 leader,
+	//
+	// 如果我不是 leader，就只更新一下 fromHost 的时间戳
+
 	if isLeader {
-		leaderHeartbeatProcessor(fromHost) // Have to add host if not already in membershipList
+		leaderHeartbeatProcessor(fromHost) 		// Have to add host if not already in membershipList
 	} else {
-		lastHeartbeat[fromHost] = time.Now() // Just update the timestamp
+		lastHeartbeat[fromHost] = time.Now() 	// Just update the timestamp
 	}
 }
 
 // Garbage collect heartbeats periodically and detect failed processes.
 func garbageCollectHeartbeats() {
+
+
 	n := time.Now()
 
+
+
+
+
 	for h := range membershipList {
+
+
 		t, ok := lastHeartbeat[h]
 
 		if !ok { // Maybe a new member, wait for it to ping
@@ -85,19 +115,26 @@ func garbageCollectHeartbeats() {
 
 			log.Printf("Peer %d not reachable", hostPidMap[h])
 
+
 			// Is leader, not executing test case 2 and is not a recovering leader
 			if isLeader && removeFailedFlag && !recoveringLeader {
 				removeFailedHost(h)
 			}
 
+
+
 			// if leader is down...
 			if h == leaderHostname {
+
+
 				// Delete old leader from membership list
 				deleteMember(leaderHostname)
 
 				// Find new leader and assign it
 				leaderHostname = findNewLeader()
 				log.Printf("Leader unavailable. New leader is %s", leaderHostname)
+
+
 
 				// Am I the new leader?
 				if leaderHostname == hostname {
@@ -106,6 +143,8 @@ func garbageCollectHeartbeats() {
 					recoveringLeader = true
 					startNewLeaderProtocol()
 				}
+
+
 			}
 		}
 	}

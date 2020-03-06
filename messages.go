@@ -6,11 +6,11 @@ package main
 // DELETE - 2
 // NOTHING - 3
 
-/// Message type mapping
-// REQ - 0
-// OK - 1
-// NEWVIEW - 2
-// NEWLEADER - 3
+// Message type mapping
+// 	ADD REQ - 0
+// 	OK - 1
+// 	NEWVIEW - 2
+// 	NEWLEADER - 3
 type Message struct {
 	Type int
 	Data map[string]int
@@ -19,13 +19,13 @@ type Message struct {
 func ReqMessage(rid int, cid int, pid int, opType int) Message {
 
 	m := make(map[string]int)
-	m["reqId"] = rid
-	m["curViewId"] = cid
-	m["procId"] = pid
-	m["opType"] = opType
+	m["reqId"] = rid				//
+	m["curViewId"] = cid			//
+	m["procId"] = pid				//
+	m["opType"] = opType			//
 
 	return Message{
-		Type: 0, // REQ message
+		Type: 0, // Add req
 		Data: m,
 	}
 }
@@ -68,7 +68,7 @@ func OkMessage(rid int, cid int) Message {
 	m["curViewId"] = cid
 
 	return Message{
-		Type: 1,
+		Type: 1,	// ok rsp
 		Data: m,
 	}
 }
